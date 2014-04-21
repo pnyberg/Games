@@ -19,9 +19,13 @@ public abstract class TowerStructure {
 		this.y = y;
 	}
 
+	public abstract void upgrade();
+
 	public abstract int getX();
 
 	public abstract int getY();
+
+	public abstract int getLevel();
 
 	public abstract void paint(Graphics g);
 

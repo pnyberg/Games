@@ -3,40 +3,52 @@ import java.awt.*;
 public class Projectile {
 	private final int side = 3;
 	public int x, y;
-	public boolean unnecessary;
+	public boolean used;
+	private int damage;
 	private TowerBall target;
 
-	public Projectile(int x, int y, TowerBall target) {
+	public Projectile(int x, int y, TowerBall target, int damage) {
 		this.x = x;
 		this.y = y;
 		this.target = target;
-		unnecessary = false;
+		this.damage = damage;
+		used = false;
 	}
 
 	public void move() {
-		int xMovement = 0;
-		int yMovement = 0;
+		int xStep = 0;
+		int yStep = 0;
 		int targetMidX = target.x + target.radius;
 		int targetMidY = target.y + target.radius;
 
 		if (Math.abs(targetMidX - x) == Math.abs(targetMidY - y)) {
-			xMovement = Math.abs(targetMidX - x) > 2 ? 2 : Math.abs(targetMidX - x);
-			yMovement = Math.abs(targetMidY - y) > 2 ? 2 : Math.abs(targetMidY - y);
+			xStep = 2;
+			yStep = 2;
 		} else if (Math.abs(targetMidX - x) > Math.abs(targetMidY - y)) {
-			xMovement = Math.abs(targetMidX - x) > 3 ? 3 : Math.abs(targetMidX - x);
-			yMovement = Math.abs(targetMidY - y) > 1 ? 1 : 0;
+			xStep = 3;
+			yStep = 1;
 		} else if (Math.abs(targetMidX - x) < Math.abs(targetMidY - y)) {
-			xMovement = Math.abs(targetMidX - x) > 1 ? 1 : 0;
-			yMovement = Math.abs(targetMidY - y) > 3 ? 3 : Math.abs(targetMidY - y);
+			xStep = 1;
+			yStep = 3;
 		}
+
+		int xMovement = getMovement(targetMidX, x, xStep);
+		int yMovement = getMovement(targetMidY, y, yStep);
 
 		x += (targetMidX > x ? xMovement : -xMovement);
 		y += (targetMidY > y ? yMovement : -yMovement);
 
-		if (targetMidX == x && targetMidY == y)
-			target.hit = true;
-		if (target.hit)
-			unnecessary = true;
+		if (targetMidX == x && targetMidY == y) {
+			target.hp -= damage;
+			used = true;
+		}
+
+		if (target.hp <= 0 || target.goaled())
+			used = true;
+	}
+
+	public int getMovement(int targetPos, int pos, int maxStepSize) {
+		return Math.abs(targetPos - pos) > maxStepSize ? maxStepSize : Math.abs(targetPos - pos);
 	}
 
 	public void paint(Graphics g) {

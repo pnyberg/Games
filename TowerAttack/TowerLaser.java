@@ -3,20 +3,25 @@ import java.util.*;
 
 public class TowerLaser extends TowerStructure {
 	public static final int COST = 40;
-
-	private final int maxCooldown = 100;
-	private int shootCooldown;
-	private boolean lasering;
-	private int laserLength;
 	public final int side = 30;
 	public final int laserWidth = 6;
 	public final int maxLaserLength = 250;
+	private final int maxCooldown = 100;
+
+	public int damage;
+	private int level;
+	private int laserLength;
+	private int shootCooldown;
+	private boolean lasering;
 
 	public TowerLaser(int x, int y) {
 		this.x = x;
 		this.y = y;
-		shootCooldown = 0;
+
+		damage = getDamage();
+		level = 1;
 		lasering = false;
+		shootCooldown = 0;
 		laserLength = 0;
 	}
 
@@ -30,7 +35,22 @@ public class TowerLaser extends TowerStructure {
 		if (lasering)
 			for (TowerBall ball : balls)
 				if (inLaser(ball))
-					ball.hit = true;
+					ball.hp -= damage;
+	}
+
+	public void moveProjectiles() {
+		if (lasering) {
+			if (laserLength < maxLaserLength)
+				laserLength += 2;
+			else {
+				laserLength = 0;
+				lasering = false;
+			}
+		}
+	}
+
+	public void upgrade() {
+		level++;
 	}
 
 	private boolean inLaser(TowerBall ball) {
@@ -102,26 +122,12 @@ public class TowerLaser extends TowerStructure {
 	}
 
 	private boolean inRect(int x, int y, int rectx, int recty, int width, int height) {
-		if (x >= rectx && x < (rectx + width) && y >= recty && y < (recty + height))
-			return true;
-		return false;
+		return x >= rectx && x < (rectx + width) && y >= recty && y < (recty + height);
 	}
 
 	private boolean inCirc(int cornerx, int cornery, int ballx, int bally, int ballRadius) {
-		if (Math.pow(ballx + ballRadius - cornerx, 2) + Math.pow(bally + ballRadius - cornery, 2) <= Math.pow(ballRadius, 2))
-			return true;
-		return false;
-	}
-
-	public void moveProjectiles() {
-		if (lasering) {
-			if (laserLength < maxLaserLength)
-				laserLength += 2;
-			else {
-				laserLength = 0;
-				lasering = false;
-			}
-		}
+		return Math.pow(ballx + ballRadius - cornerx, 2) + Math.pow(bally + ballRadius - cornery, 2) 
+				<= Math.pow(ballRadius, 2);
 	}
 
 	public int getX() {
@@ -132,8 +138,28 @@ public class TowerLaser extends TowerStructure {
 		return y;
 	}
 
+	public int getLevel() {
+		return level;
+	}
+
+	public int getDamage() {
+		if (level == 1)
+			return 1;
+		else if (level == 2)
+			return 2;
+		else if (level == 3)
+			return 4;
+		return 0;
+	}
+
 	public void paint(Graphics g) {
-		g.setColor(Color.magenta);
+		if (level == 1)
+			g.setColor(Color.magenta);
+		else if (level == 2)
+			g.setColor(Color.blue);
+		else if (level == 3)
+			g.setColor(Color.gray);
+
 		g.fillRect(x, y, side, side);
 		g.setColor(Color.black);
 		g.fillRect(x + 2, y + side/2 - 2, side - 4, 4);
@@ -142,7 +168,12 @@ public class TowerLaser extends TowerStructure {
 
 	public void paintProjectiles(Graphics g) {
 		if (lasering) {
-			g.setColor(Color.red);
+			if (level == 1)
+				g.setColor(Color.red);
+			else if (level == 2)
+				g.setColor(Color.yellow);
+			else if (level == 3)
+				g.setColor(Color.orange);
 			g.fillRect(x + (side - laserWidth) / 2, y - laserLength, laserWidth, laserLength); // north
 			g.fillRect(x + side, y + (side - laserWidth) / 2, laserLength, laserWidth); // right
 			g.fillRect(x + (side - laserWidth) / 2, y + side, laserWidth, laserLength); // south

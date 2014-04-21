@@ -1,3 +1,7 @@
+/**
+ * BUGG: Sätt ut tre "shockers" med level (nerifrån) 3, 2 och 1. Fjärde går ej att sätta ut
+ */
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -22,7 +26,7 @@ public class TowerAttack extends JFrame implements ActionListener {
 		add(buttonPanel, BorderLayout.SOUTH);
 
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setSize(800,600);
+		setSize(700,600);
 		setVisible(true);
 	}
 

@@ -10,14 +10,15 @@ import java.util.LinkedList;
 public class GameField extends JPanel implements ActionListener, MouseListener, MouseMotionListener {
 	private final int width = 700;
 	private final int height = 500;
+	private final int menuHeight = 400;
+	private final int side = 30;
 	private final int startMoney = 100;
-	private final Color[] pallet = {Color.red, Color.blue, Color.white, Color.yellow, Color.orange, Color.pink, Color.gray};
+	private final int ballWaitTime = 80;
 
 	private Timer timer;
 
-	private final int ballWaitTime = 80;
 	private int randomBallWaitTime;
-	private int ballCounter;
+	private int ballCounter, ballCountdown;
 	private TowerDoor start, goal;
 	private TowerMenuBar towerMenuBar;
 	private LinkedList<TowerBall> balls;
@@ -25,7 +26,6 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 	private LinkedList<TowerStructure> cannons;
 	private LinkedList<Point> movementPattern;
 
-	private boolean holding;
 	private boolean placed;
 	private TowerStructure holdingObject;
 
@@ -36,7 +36,7 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		start = new TowerDoor(0, 4 * 30, TowerDoor.east, Color.blue);
 		goal = new TowerDoor(0, 6 * 30, TowerDoor.east, Color.red);
 
-		towerMenuBar = new TowerMenuBar(0, 400);
+		towerMenuBar = new TowerMenuBar(0, menuHeight);
 		towerMenuBar.addMoney(startMoney);
 
 		balls = new LinkedList<TowerBall>();
@@ -44,6 +44,7 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		cannons = new LinkedList<TowerStructure>();
 
 		ballCounter = 0;
+		ballCountdown = 0;
 
 		addMouseListener(this);
 		addMouseMotionListener(this);
@@ -56,22 +57,13 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		timer.start();
 	}
 
-	// creates a new ball for per to play with
-	public void createBall() {
-		int palletIndex = ((int)(Math.random() * 10)) % pallet.length;
-		Color ballColor = pallet[palletIndex];
-		balls.add(new TowerBall(0, 4 * 30, ballColor));
-
-		balls.getLast().addMovement((LinkedList<Point>)movementPattern.clone());
-
-		repaint();
+	public void stop() {
+		timer.stop();
 	}
 
 	// configure the layout of the field
 	//  obstacles etc
 	public void initField() {
-		int side = 30;
-
 		for (int i = 0 ; i < 11 ; i++)
 			rocks.add(new TowerRock(i * side, 0));
 
@@ -129,7 +121,53 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		movementPattern.add(new Point(0 * side, 6 * side));
 	}
 
-	public void purchase() {
+	// creates a new ball for per to play with
+	public void createBall() {
+		int levelRandomizer = (int)(Math.random() * 20);
+		int level;
+
+		if ((levelRandomizer - ballCounter) > -10)
+			level = 1;
+		else if ((levelRandomizer - ballCounter) > -30)
+			level = 2;
+		else if ((levelRandomizer - ballCounter) > -55)
+			level = 3;
+		else
+			level = 4;
+
+		balls.add(new TowerBall(0, 4 * 30, level));
+		balls.getLast().addMovement((LinkedList<Point>)movementPattern.clone());
+		ballCounter++;
+	}
+
+	// removes balls if they have reached goal or is hit
+	public void checkRemoving() {
+		for (int i = 0 ; i < balls.size() ; i++)
+			if (goal.contains(balls.get(i))) {
+				towerMenuBar.takeDamage(balls.get(i));
+				balls.get(i).reachedGoal();
+				balls.remove(i--);
+			}
+			else if (balls.get(i).hp <= 0)
+	 			towerMenuBar.cash(balls.remove(i--));
+
+	 	if (towerMenuBar.getHealth() == 0)
+	 		stop(); // TODO: give a message + "clean up" (holding + ev wave)
+	}
+
+	// check if a new ball should be put in play
+	public void checkCreateNewball() {
+		if (ballCountdown == 0) {
+			createBall();
+			randomBallWaitTime = ((int)(Math.random() * 100)) % 40;
+			ballCountdown = ballWaitTime + randomBallWaitTime;
+		}
+
+		ballCountdown--;
+	}
+
+	// removes the cost of the tower from the money-total
+	public void purchaseCurrentHoldingObject() {
 		if (holdingObject instanceof TowerCannon)
 			towerMenuBar.addMoney(-TowerCannon.COST);
 		else if (holdingObject instanceof TowerShocker)
@@ -138,14 +176,23 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 			towerMenuBar.addMoney(-TowerLaser.COST);
 	}
 
+	// if the given coordinate is on the board
 	public boolean inBoard(int x, int y) {
-		return x >= 0 && x < width && y >= 0 && y < height;
+		return x >= 0 && x < width && y >= 0 && y < menuHeight;
 	}
 
+	// if the given coordinate is on the menubar
+	public boolean inMenuBar(int x, int y) {
+		return x >= 0 && x < width && y >= menuHeight && y < height;
+	}
+
+	// checks if the given position is a rock or has 
+	//  another cannon there already
 	public boolean areaIsAvailable(int x, int y) {
 		return areaIsRock(x, y) && !areaIsOccupied(x, y);
 	}
 
+	// if the given positions is a rock
 	public boolean areaIsRock(int x, int y) {
 		for (TowerRock rock : rocks)
 			if (rock.x == x && rock.y == y)
@@ -153,6 +200,7 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		return false;
 	}
 
+	// if the given position already has a cannon there
 	public boolean areaIsOccupied(int x, int y) {
 		for (TowerStructure cannon : cannons)
 			if (cannon.getX() == x && cannon.getY() == y)
@@ -160,6 +208,8 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		return false;
 	}
 
+	// if the amount of money is enough to buy the 
+	//  cannon that is held
 	public boolean canAfford() {
 		int cash = towerMenuBar.getMoney();
 
@@ -173,6 +223,8 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		return false;
 	}
 
+	// when timer ticks, update game
+	//  move, shoot and ball-handling
 	public void actionPerformed(ActionEvent e) {
 		for (TowerBall ball : balls)
 			ball.move();
@@ -183,80 +235,68 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 		for (TowerStructure cannon : cannons)
 			cannon.moveProjectiles();
 
-		for (int i = 0 ; i < balls.size() ; i++) {
-			if (goal.contains(balls.get(i)) || balls.get(i).hit) {
-				if (balls.get(i).hit)
-	 				towerMenuBar.cash(balls.get(i));
-				balls.remove(i);
-				i--;
-			}
-		}
-
-		if (ballCounter % (ballWaitTime + randomBallWaitTime) == 0) {
-			createBall();
-			randomBallWaitTime = ((int)(Math.random() * 100)) % 40;
-			ballCounter = 0;
-		}
-		ballCounter++;
+		checkRemoving();
+		checkCreateNewball();
 
 		repaint();
 	}
 
 	@Override
-	public void mousePressed(MouseEvent e) {
-		// do nothing
-	}
+	public void mousePressed(MouseEvent e) { /* do nothing */ }
 
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		if (!timer.isRunning())
 			return;
 
+		int x = e.getX();
+		int y = e.getY();
+
 		// left mouse-button
 		if (e.getButton() == MouseEvent.BUTTON1) {
-			if (holding) {
-				if (inBoard(e.getX(), e.getY())) {
-					int placedx = e.getX() - e.getX() % 30;
-					int placedy = e.getY() - e.getY() % 30;
+			int placedx = x - (x % 30);
+			int placedy = y - (y % 30);
 
-					if (areaIsAvailable(placedx, placedy) && canAfford()) {
-						holding = false;
-
-						purchase();
-						holdingObject.setPosition(placedx, placedy);
-						cannons.add(holdingObject);
-					}
+			if (holdingObject != null && inBoard(x, y)) {
+				// place the cannon
+				if (areaIsAvailable(placedx, placedy) && canAfford()) {
+					purchaseCurrentHoldingObject();
+					holdingObject.setPosition(placedx, placedy);
+					cannons.add(holdingObject);
+					holdingObject = null;
 				}
-			}
+			} else if (areaIsOccupied(placedx, placedy)) {
+				// sets the bar to "upgrade"
+				for (TowerStructure cannon : cannons)
+					if (cannon.getX() == placedx && cannon.getY() == placedy) {
+						towerMenuBar.setState(cannon);
+						break;
+					}
+			} else if (inBoard(x, y))
+				// sets the bar to "shopping"
+				towerMenuBar.setState(TowerMenuBar.CANNONS);
 
-			if (towerMenuBar.iconPressed(e.getX(), e.getY())) {
-				holding = true;
-				holdingObject = towerMenuBar.objectPickedUp;
-			}
-		} else if (e.getButton() == MouseEvent.BUTTON3) { // right mouse-button
-			holding = false;
+			// pick up the cannon from icon
+			if (towerMenuBar.iconPressed(x, y))
+				holdingObject = towerMenuBar.objectPickedUp();
+
+		} else if (e.getButton() == MouseEvent.BUTTON3) // right mouse-button
 			holdingObject = null;
-		}
 	}
 
 	@Override
-	public void mouseReleased(MouseEvent e) {
-		// do nothing
-	}
+	public void mouseReleased(MouseEvent e) { /* do nothing */ }
 
 	@Override
-	public void mouseEntered(MouseEvent e) {
-		// does nothing
-	}
+	public void mouseEntered(MouseEvent e) { /* do nothing */ }
 
 	@Override
-	public void mouseExited(MouseEvent e) {
-		// does nothing
-	}
+	public void mouseExited(MouseEvent e) { /* do nothing */ }
 
+	// if your holding an object, update it's position
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		if (holding) {
+		if (holdingObject != null) {
 			int holdingx = e.getX() - 15;
 			int holdingy = e.getY() - 15;
 			holdingObject.setPosition(holdingx, holdingy);
@@ -264,40 +304,38 @@ public class GameField extends JPanel implements ActionListener, MouseListener, 
 	}
 
 	@Override
-	public void mouseDragged(MouseEvent e) {
-		// do nothing
-	}
+	public void mouseDragged(MouseEvent e) { /* do nothing */ }
 
 	// paints the field
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
 
+		// paints the background
 		g.setColor(Color.green);
 		g.fillRect(0, 0, width, height);
 
+		// paints the "doors"
 		start.paint(g);
 		goal.paint(g);
 
-		// paints all the balls on the field
 		for (TowerBall ball : balls)
 			ball.paint(g);
 
-		// paints all the rocks on the field
 		for (TowerRock rock : rocks)
 			rock.paint(g);
 
-		// paints all the cannons on the field
 		for (TowerStructure cannon : cannons)
 			cannon.paint(g);
 
-		// paints all the projectiles on the field
 		for (TowerStructure cannon : cannons)
 			cannon.paintProjectiles(g);
 
+		// paints the menubar with all its components
 		towerMenuBar.paint(g);
 
-		if (holding)
+		// paints the object held (if there is one)
+		if (holdingObject != null)
 			holdingObject.paint(g);
 	}
 }
